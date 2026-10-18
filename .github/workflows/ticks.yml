@@ -1,5 +1,6 @@
 # Save ticks: the calendar's "Sync ticks" button opens a new issue titled "ticks" whose body lists the boxes ticked or
-# unticked on that device (hashed keys, [ticked 1/0, time in seconds]). This merges them into ticks.json on the "ticks"
+# unticked on that device (hashed keys, [ticked 1/0, time in seconds]; an attendee name is [its ciphertext, time], encrypted
+# on her phone with a key that lives only in the locked page). This merges them into ticks.json on the "ticks"
 # branch, newest change winning, and closes the issue. Only issues opened by michellealmagro are read. Every device
 # reads ticks.json when the calendar opens. No key lives in the page.
 name: Save ticks
@@ -27,14 +28,15 @@ jobs:
           import base64, json, os, re, subprocess
           m = re.search(r'\{.*\}', os.environ['BODY'], re.S)
           new = json.loads(m.group(0)) if m else {}
-          new = {k: v for k, v in new.items() if re.fullmatch(r'[0-9a-z]{2,16}', k) and isinstance(v, list) and len(v) == 2}
+          new = {k: v for k, v in new.items() if re.fullmatch(r'[0-9a-z]{2,16}', k) and isinstance(v, list) and len(v) == 2
+                 and (not isinstance(v[0], str) or re.fullmatch(r'[A-Za-z0-9+/=]{20,600}', v[0]))}
           api = lambda *a: subprocess.run(['gh', 'api', *a], capture_output=True, text=True)
           r = api(f"repos/{os.environ['REPO']}/contents/ticks.json?ref=ticks")
           cur, sha = {}, None
           if r.returncode == 0:
               j = json.loads(r.stdout); sha = j['sha']; cur = json.loads(base64.b64decode(j['content']))
           for k, v in new.items():
-              if k not in cur or v[1] >= cur[k][1]: cur[k] = [1 if v[0] else 0, int(v[1])]
+              if k not in cur or v[1] >= cur[k][1]: cur[k] = [v[0] if isinstance(v[0], str) else (1 if v[0] else 0), int(v[1])]
           args = ['-X', 'PUT', f"repos/{os.environ['REPO']}/contents/ticks.json", '-f', 'message=ticks', '-f', 'branch=ticks',
                   '-f', 'content=' + base64.b64encode(json.dumps(cur, separators=(',', ':')).encode()).decode()]
           if sha: args += ['-f', 'sha=' + sha]
