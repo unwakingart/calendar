@@ -1,6 +1,6 @@
 # Save ticks: the calendar's "Sync ticks" button opens a new issue titled "ticks" whose body lists the boxes ticked or
 # unticked on that device (hashed keys, [ticked 1/0, time in seconds]; an attendee name is [its ciphertext, time], encrypted
-# on her phone with a key that lives only in the locked page). This merges them into ticks.json on the "ticks"
+# on her phone with a key that lives only in the locked page; a to-do she adds, moves, edits or deletes is the same, up to 4000 characters). This merges them into ticks.json on the "ticks"
 # branch, newest change winning, and closes the issue. Only issues opened by michellealmagro are read. Every device
 # reads ticks.json when the calendar opens. No key lives in the page.
 name: Save ticks
@@ -29,7 +29,7 @@ jobs:
           m = re.search(r'\{.*\}', os.environ['BODY'], re.S)
           new = json.loads(m.group(0)) if m else {}
           new = {k: v for k, v in new.items() if re.fullmatch(r'[0-9a-z]{2,16}', k) and isinstance(v, list) and len(v) == 2
-                 and (not isinstance(v[0], str) or re.fullmatch(r'[A-Za-z0-9+/=]{20,600}', v[0]))}
+                 and (not isinstance(v[0], str) or re.fullmatch(r'[A-Za-z0-9+/=]{20,4000}', v[0]))}
           api = lambda *a: subprocess.run(['gh', 'api', *a], capture_output=True, text=True)
           r = api(f"repos/{os.environ['REPO']}/contents/ticks.json?ref=ticks")
           cur, sha = {}, None
